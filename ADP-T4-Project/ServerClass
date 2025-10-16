@@ -1,0 +1,131 @@
+public class EnrollmentServer {
+    private static final int PORT = 8888;
+    private ServerSocket serverSocket;
+    
+    public void start() {
+        try {
+            serverSocket = new ServerSocket(PORT);
+            System.out.println("Server started on port " + PORT);
+            
+            while (true) {
+                Socket clientSocket = serverSocket.accept();
+                System.out.println("Client connected");
+                new ClientHandler(clientSocket).start();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+    
+    public static void main(String[] args) {
+        new EnrollmentServer().start();
+    }
+    
+    private class ClientHandler extends Thread {
+        private Socket socket;
+        private ObjectInputStream in;
+        private ObjectOutputStream out;
+        
+        public ClientHandler(Socket socket) {
+            this.socket = socket;
+        }
+        
+        @Override
+        public void run() {
+            try {
+                out = new ObjectOutputStream(socket.getOutputStream());
+                in = new ObjectInputStream(socket.getInputStream());
+                
+                while (true) {
+                    String request = (String) in.readObject();
+                    handleRequest(request);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        
+        private void handleRequest(String request) throws Exception {
+            String[] parts = request.split("\\|");
+            String command = parts[0];
+            
+            switch (command) {
+                case "LOGIN":
+                    handleLogin(parts[1], parts[2]);
+                    break;
+                case "ADD_COURSE":
+                    handleAddCourse(parts[1], parts[2]);
+                    break;
+                case "ADD_STUDENT":
+                    handleAddStudent(parts[1], parts[2]);
+                    break;
+                case "GET_COURSES":
+                    handleGetCourses();
+                    break;
+                case "ENROLL":
+                    handleEnroll(parts[1], parts[2]);
+                    break;
+                case "GET_STUDENT_COURSES":
+                    handleGetStudentCourses(parts[1]);
+                    break;
+                case "GET_COURSE_STUDENTS":
+                    handleGetCourseStudents(parts[1]);
+                    break;
+            }
+        }
+        
+        private void handleLogin(String username, String password) throws Exception {
+            UserDAO dao = new UserDAO();
+            boolean authenticated = dao.authenticate(username, password);
+            if (authenticated) {
+                String role = dao.getUserRole(username);
+                out.writeObject("SUCCESS|" + role);
+            } else {
+                out.writeObject("FAILED");
+            }
+            out.flush();
+        }
+        
+        private void handleAddCourse(String code, String title) throws Exception {
+            CourseDAO dao = new CourseDAO();
+            dao.addCourse(new Course(code, title));
+            out.writeObject("SUCCESS");
+            out.flush();
+        }
+        
+        private void handleAddStudent(String number, String name) throws Exception {
+            StudentDAO dao = new StudentDAO();
+            dao.addStudent(new Student(number, name));
+            out.writeObject("SUCCESS");
+            out.flush();
+        }
+        
+        private void handleGetCourses() throws Exception {
+            CourseDAO dao = new CourseDAO();
+            List<Course> courses = dao.getAllCourses();
+            out.writeObject(courses);
+            out.flush();
+        }
+        
+        private void handleEnroll(String studentNumber, String courseCode) throws Exception {
+            EnrollmentDAO dao = new EnrollmentDAO();
+            dao.enrollStudent(studentNumber, courseCode);
+            out.writeObject("SUCCESS");
+            out.flush();
+        }
+        
+        private void handleGetStudentCourses(String studentNumber) throws Exception {
+            EnrollmentDAO dao = new EnrollmentDAO();
+            List<Course> courses = dao.getCoursesForStudent(studentNumber);
+            out.writeObject(courses);
+            out.flush();
+        }
+        
+        private void handleGetCourseStudents(String courseCode) throws Exception {
+            EnrollmentDAO dao = new EnrollmentDAO();
+            List<Student> students = dao.getStudentsForCourse(courseCode);
+            out.writeObject(students);
+            out.flush();
+        }
+    }
+}

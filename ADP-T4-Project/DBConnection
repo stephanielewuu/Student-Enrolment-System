@@ -1,0 +1,7 @@
+public class DBConnection {
+    private static final String DB_URL = "jdbc:derby:StudentEnrolmentDB;create=true";
+    
+    public static Connection getConnection() throws SQLException {
+        return DriverManager.getConnection(DB_URL);
+    }
+}
